@@ -225,6 +225,9 @@
 
     let prevObjectUrl = null;
 
+    // Cache: key = "text||model" → { wavBlob, format }
+    const audioCache = new Map();
+
     function countWords(str) {
       return str.trim() === '' ? 0 : str.trim().split(/\s+/).length;
     }
@@ -288,6 +291,9 @@
       resultPanel.classList.add('hidden');
       if (prevObjectUrl) { URL.revokeObjectURL(prevObjectUrl); prevObjectUrl = null; }
 
+      const cacheKey = `${text}||${model}`;
+      const cached   = audioCache.get(cacheKey);
+
       setLoading(true);
       setStatus('playing', `
         <div class="flex items-end gap-[3px] h-[18px] shrink-0">
@@ -295,33 +301,44 @@
           <div class="eq-bar"></div><div class="eq-bar"></div>
           <div class="eq-bar"></div>
         </div>
-        Playing…
+        ${cached ? 'Playing (cached)…' : 'Playing…'}
       `);
 
       try {
-        const res = await fetch('/tts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text, model, demoType }),
-        });
+        let wavBlob, format;
 
-        if (!res.ok) {
-          const { error } = await res.json().catch(() => ({ error: res.statusText }));
-          throw new TtsHttpError(res.status, error || res.statusText);
+        if (cached) {
+          // ── Cache hit: skip the API call ──
+          ({ wavBlob, format } = cached);
+        } else {
+          // ── Cache miss: fetch from API ──
+          const res = await fetch('/tts', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text, model, demoType }),
+          });
+
+          if (!res.ok) {
+            const { error } = await res.json().catch(() => ({ error: res.statusText }));
+            throw new TtsHttpError(res.status, error || res.statusText);
+          }
+
+          wavBlob = await res.blob();
+          if (wavBlob.size === 0) throw new Error('Server returned empty audio.');
+
+          format = {
+            sampleRate: Number(res.headers.get('x-sample-rate') ?? 24000),
+            channels:   Number(res.headers.get('x-channels')    ?? 1),
+            bitDepth:   Number(res.headers.get('x-bit-depth')   ?? 16),
+          };
+
+          // Store in cache for next time
+          audioCache.set(cacheKey, { wavBlob, format });
         }
-
-        const wavBlob = await res.blob();
-        if (wavBlob.size === 0) throw new Error('Server returned empty audio.');
-
-        const format = {
-          sampleRate: Number(res.headers.get('x-sample-rate') ?? 24000),
-          channels:   Number(res.headers.get('x-channels')    ?? 1),
-          bitDepth:   Number(res.headers.get('x-bit-depth')   ?? 16),
-        };
 
         await playWavBlob(wavBlob);
 
-        setStatus('info', '✓ Playback complete.');
+        setStatus('info', cached ? '✓ Playback complete (from cache).' : '✓ Playback complete.');
         prevObjectUrl = URL.createObjectURL(wavBlob);
         downloadLink.href = prevObjectUrl;
         renderMeta(format, wavBlob.size);
