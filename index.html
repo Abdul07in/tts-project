@@ -148,7 +148,7 @@
   </footer>
 
   <script type="module">
-    import { playTtsAudio, TtsHttpError, TtsContentTypeError, TtsEmptyPayloadError, UnsupportedEnvironmentError } from './src/playTtsAudio.js';
+    import { playWavBlob, UnsupportedEnvironmentError, TtsHttpError } from './src/playTtsAudio.js';
 
     const WORD_LIMIT   = 400;
     const textInput    = document.getElementById('textInput');
@@ -237,7 +237,27 @@
       `);
 
       try {
-        const { wavBlob, format } = await playTtsAudio({ text, model, demoType, autoPlay: true });
+        const res = await fetch('/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text, model, demoType }),
+        });
+
+        if (!res.ok) {
+          const { error } = await res.json().catch(() => ({ error: res.statusText }));
+          throw new TtsHttpError(res.status, error || res.statusText);
+        }
+
+        const wavBlob = await res.blob();
+        if (wavBlob.size === 0) throw new Error('Server returned empty audio.');
+
+        const format = {
+          sampleRate: Number(res.headers.get('x-sample-rate') ?? 24000),
+          channels:   Number(res.headers.get('x-channels')    ?? 1),
+          bitDepth:   Number(res.headers.get('x-bit-depth')   ?? 16),
+        };
+
+        await playWavBlob(wavBlob);
 
         setStatus('info', '✓ Playback complete.');
         prevObjectUrl = URL.createObjectURL(wavBlob);
@@ -249,8 +269,6 @@
         const msg =
           err instanceof UnsupportedEnvironmentError ? `Browser not supported: ${err.message}` :
           err instanceof TtsHttpError                ? `HTTP ${err.status}: ${err.statusText}`  :
-          err instanceof TtsContentTypeError         ? `Wrong content type: ${err.received}`    :
-          err instanceof TtsEmptyPayloadError        ? 'Server returned empty audio.'           :
           err.name === 'AbortError'                  ? 'Request cancelled.'                     :
           err.message;
         setStatus('error', `✕ ${msg}`);

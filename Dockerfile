@@ -3,5 +3,6 @@ ENV NODE_ENV=production
 WORKDIR /app
 COPY package.json .
 COPY src/ ./src/
+COPY index.html .
 EXPOSE 3000
 CMD ["node", "src/server.js"]

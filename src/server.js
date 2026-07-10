@@ -1,5 +1,29 @@
 import http from 'node:http';
+import fs   from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { pcmToWav, extractPcmFormat } from './pcmToWav.js';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const ROOT      = path.resolve(__dirname, '..');
+
+const MIME = {
+  '.html': 'text/html; charset=utf-8',
+  '.js':   'application/javascript; charset=utf-8',
+  '.css':  'text/css; charset=utf-8',
+  '.json': 'application/json',
+  '.ico':  'image/x-icon',
+};
+
+function serveFile(res, filePath) {
+  const ext  = path.extname(filePath);
+  const mime = MIME[ext] ?? 'application/octet-stream';
+  let data;
+  try { data = fs.readFileSync(filePath); }
+  catch { return json(res, 404, { error: 'Not found' }); }
+  res.writeHead(200, { 'Content-Type': mime, 'Content-Length': data.byteLength });
+  res.end(data);
+}
 
 const PORT         = Number(process.env.PORT) || 3000;
 const TTS_ENDPOINT = process.env.TTS_ENDPOINT || 'https://deepgram.com/api/tts';
@@ -32,6 +56,17 @@ const server = http.createServer(async (req, res) => {
 
   if (req.method === 'GET' && pathname === '/health') {
     return json(res, 200, { status: 'ok' });
+  }
+
+  // Serve frontend static files
+  if (req.method === 'GET') {
+    if (pathname === '/' || pathname === '/index.html') {
+      return serveFile(res, path.join(ROOT, 'index.html'));
+    }
+    if (pathname.startsWith('/src/')) {
+      const safe = path.normalize(pathname).replace(/^\//, '');
+      return serveFile(res, path.join(ROOT, safe));
+    }
   }
 
   if (req.method === 'POST' && pathname === '/tts') {
