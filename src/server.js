@@ -29,6 +29,25 @@ const PORT         = Number(process.env.PORT) || 3000;
 const TTS_ENDPOINT = process.env.TTS_ENDPOINT || 'https://deepgram.com/api/tts';
 const API_KEY      = process.env.DEEPGRAM_API_KEY || '';
 const WORD_LIMIT   = 400;
+const CACHE_MAX    = 5;
+
+const ttsCache = new Map();
+
+function cacheGet(key) {
+  if (!ttsCache.has(key)) return null;
+  const value = ttsCache.get(key);
+  ttsCache.delete(key);
+  ttsCache.set(key, value);
+  return value;
+}
+
+function cacheSet(key, value) {
+  if (ttsCache.has(key)) ttsCache.delete(key);
+  ttsCache.set(key, value);
+  if (ttsCache.size > CACHE_MAX) {
+    ttsCache.delete(ttsCache.keys().next().value);
+  }
+}
 
 function readJson(req) {
   return new Promise((resolve, reject) => {
@@ -58,7 +77,6 @@ const server = http.createServer(async (req, res) => {
     return json(res, 200, { status: 'ok' });
   }
 
-  // Serve frontend static files
   if (req.method === 'GET') {
     if (pathname === '/' || pathname === '/index.html') {
       return serveFile(res, path.join(ROOT, 'index.html'));
@@ -87,6 +105,25 @@ const server = http.createServer(async (req, res) => {
     if (wordCount > WORD_LIMIT) {
       return json(res, 422, { error: `Text exceeds ${WORD_LIMIT}-word limit (got ${wordCount}).` });
     }
+
+    const cacheKey = `${text}||${model}`;
+    const hit      = cacheGet(cacheKey);
+
+    if (hit) {
+      console.log(`[cache] HIT  (${ttsCache.size}/${CACHE_MAX}) model=${model} chars=${text.length}`);
+      res.writeHead(200, {
+        'Content-Type':        'audio/wav',
+        'Content-Disposition': 'attachment; filename="tts-output.wav"',
+        'Content-Length':      hit.wavData.byteLength,
+        'X-Sample-Rate':       String(hit.format.sampleRate),
+        'X-Channels':          String(hit.format.channels),
+        'X-Bit-Depth':         String(hit.format.bitDepth),
+        'X-Cache':             'HIT',
+      });
+      return res.end(hit.wavData);
+    }
+
+    console.log(`[cache] MISS (${ttsCache.size}/${CACHE_MAX}) model=${model} chars=${text.length}`);
 
     const headers = { 'Content-Type': 'application/json', Accept: '*/*' };
     if (API_KEY) headers['Authorization'] = `Token ${API_KEY}`;
@@ -120,6 +157,9 @@ const server = http.createServer(async (req, res) => {
     const wavBuffer = pcmToWav(pcmBuffer, format);
     const wavData   = Buffer.from(wavBuffer);
 
+    cacheSet(cacheKey, { wavData, format });
+    console.log(`[cache] SET  (${ttsCache.size}/${CACHE_MAX}) model=${model} chars=${text.length}`);
+
     res.writeHead(200, {
       'Content-Type':        'audio/wav',
       'Content-Disposition': 'attachment; filename="tts-output.wav"',
@@ -127,6 +167,7 @@ const server = http.createServer(async (req, res) => {
       'X-Sample-Rate':       String(format.sampleRate),
       'X-Channels':          String(format.channels),
       'X-Bit-Depth':         String(format.bitDepth),
+      'X-Cache':             'MISS',
     });
     return res.end(wavData);
   }

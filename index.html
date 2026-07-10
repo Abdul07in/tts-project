@@ -3,21 +3,23 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Deepgram TTS Player</title>
+  <title>Matrix TTS — Neural Voice Synthesis</title>
+  <meta name="description" content="Matrix TTS converts text to lifelike speech in milliseconds. Powered by Deepgram Aura-2. No dependencies, no server-side processing — just pure voice." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 
   <style type="text/tailwindcss">
     @theme {
       --font-sans: 'Inter', sans-serif;
-      --color-bg:          #09090c;
-      --color-surface:     #101114;
-      --color-card:        #141720;
-      --color-border:      #1f2435;
+      --color-bg:          #07070a;
+      --color-surface:     #0e0e12;
+      --color-card:        #111318;
+      --color-border:      #1c2030;
       --color-accent:      #13ef93;
       --color-accent-dim:  #0cb874;
-      --color-muted:       #5a6380;
+      --color-accent2:     #6ee7f7;
+      --color-muted:       #52607a;
       --color-warn:        #f59e0b;
       --color-danger:      #f43f5e;
     }
@@ -27,12 +29,25 @@
       to   { transform: scaleY(1); }
     }
     @keyframes glow-pulse {
-      0%, 100% { box-shadow: 0 0 20px rgba(19,239,147,0.2); }
-      50%       { box-shadow: 0 0 40px rgba(19,239,147,0.45); }
+      0%, 100% { box-shadow: 0 0 24px rgba(19,239,147,0.22); }
+      50%       { box-shadow: 0 0 48px rgba(19,239,147,0.50); }
     }
     @keyframes fadeUp {
-      from { opacity: 0; transform: translateY(8px); }
+      from { opacity: 0; transform: translateY(10px); }
       to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0px); }
+      50%       { transform: translateY(-6px); }
+    }
+    @keyframes shimmer {
+      0%   { background-position: -200% center; }
+      100% { background-position:  200% center; }
+    }
+    @keyframes scan {
+      0%   { top: 0%; opacity: 0.6; }
+      50%  { opacity: 1; }
+      100% { top: 100%; opacity: 0.6; }
     }
 
     .eq-bar {
@@ -45,8 +60,18 @@
     .eq-bar:nth-child(4) { height: 15px; animation-delay: 0.08s; }
     .eq-bar:nth-child(5) { height: 7px;  animation-delay: 0.22s; }
 
-    .glow-btn { animation: glow-pulse 2.5s ease-in-out infinite; }
-    .fade-up  { animation: fadeUp 0.3s ease forwards; }
+    .glow-btn    { animation: glow-pulse 2.5s ease-in-out infinite; }
+    .fade-up     { animation: fadeUp 0.4s ease forwards; }
+    .float-anim  { animation: float 4s ease-in-out infinite; }
+
+    .shimmer-text {
+      background: linear-gradient(90deg, #fff 20%, #13ef93 40%, #6ee7f7 60%, #fff 80%);
+      background-size: 200% auto;
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      animation: shimmer 4s linear infinite;
+    }
 
     .field-input {
       @apply w-full bg-surface border border-border rounded-xl text-white/90
@@ -54,148 +79,285 @@
              focus:border-accent/50 focus:ring-2 focus:ring-accent/10
              transition-all duration-200 font-sans;
     }
+
+    .feature-card {
+      @apply bg-card border border-border rounded-2xl p-6 transition-all duration-300;
+    }
+    .feature-card:hover {
+      border-color: rgba(19,239,147,0.25);
+      box-shadow: 0 0 30px rgba(19,239,147,0.06);
+    }
   </style>
 </head>
 
-<body class="bg-bg text-white font-sans min-h-screen flex flex-col items-center px-4 py-16 antialiased">
+<body class="bg-bg text-white font-sans min-h-screen antialiased">
 
   <!-- Background grid -->
-  <div class="pointer-events-none fixed inset-0 opacity-[0.03]"
-       style="background-image: linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px); background-size: 40px 40px;"></div>
+  <div class="pointer-events-none fixed inset-0 opacity-[0.025]"
+       style="background-image: linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px); background-size: 48px 48px;"></div>
 
-  <!-- Glow blob -->
-  <div class="pointer-events-none fixed top-0 left-1/2 -translate-x-1/2 w-[700px] h-[400px] rounded-full opacity-10"
-       style="background: radial-gradient(ellipse, #13ef93 0%, transparent 70%); filter: blur(60px);"></div>
+  <!-- Glow blobs -->
+  <div class="pointer-events-none fixed top-[-120px] left-1/2 -translate-x-1/2 w-[900px] h-[500px] rounded-full opacity-[0.08]"
+       style="background: radial-gradient(ellipse, #13ef93 0%, transparent 65%); filter: blur(80px);"></div>
+  <div class="pointer-events-none fixed bottom-0 right-0 w-[500px] h-[400px] rounded-full opacity-[0.05]"
+       style="background: radial-gradient(ellipse, #6ee7f7 0%, transparent 65%); filter: blur(80px);"></div>
 
-  <!-- Header -->
-  <header class="relative text-center mb-14 z-10">
-    <div class="inline-flex items-center gap-2 bg-accent/10 border border-accent/25 text-accent text-[10px] font-semibold uppercase tracking-widest px-3.5 py-1.5 rounded-full mb-5">
-      <span class="w-1.5 h-1.5 rounded-full bg-accent shadow-[0_0_8px_#13ef93]"></span>
-      Live Demo
+  <!-- ─── NAV ─────────────────────────────────────────────────────────── -->
+  <nav class="relative z-20 flex items-center justify-between max-w-6xl mx-auto px-6 pt-7 pb-4">
+    <div class="flex items-center gap-2.5">
+      <!-- Logo mark -->
+      <div class="w-8 h-8 rounded-lg flex items-center justify-center shrink-0"
+           style="background: linear-gradient(135deg, #13ef93, #0cb874);">
+        <svg class="w-4 h-4 text-black" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+        </svg>
+      </div>
+      <span class="font-bold text-[17px] tracking-tight">Matrix <span style="color:#13ef93;">TTS</span></span>
     </div>
-    <h1 class="text-5xl font-bold tracking-tight mb-3"
-        style="background: linear-gradient(135deg, #fff 30%, #13ef93 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
-      Deepgram TTS Player
+    <div class="hidden sm:flex items-center gap-6 text-[13px] font-medium text-muted">
+      <a href="#demo"     class="hover:text-white transition-colors duration-150">Demo</a>
+      <a href="#features" class="hover:text-white transition-colors duration-150">Features</a>
+      <a href="#api"      class="hover:text-white transition-colors duration-150">API</a>
+    </div>
+    <div class="flex items-center gap-2 bg-accent/10 border border-accent/25 text-accent text-[11px] font-semibold uppercase tracking-widest px-3 py-1.5 rounded-full">
+      <span class="w-1.5 h-1.5 rounded-full bg-accent shadow-[0_0_8px_#13ef93] shrink-0"></span>
+      Live
+    </div>
+  </nav>
+
+  <!-- ─── HERO ──────────────────────────────────────────────────────────── -->
+  <header class="relative z-10 text-center px-6 pt-20 pb-16 max-w-4xl mx-auto">
+    <div class="inline-flex items-center gap-2 bg-white/5 border border-white/10 text-white/60 text-[11px] font-medium px-4 py-2 rounded-full mb-8">
+      <span class="text-accent">✦</span>
+      Powered by Deepgram Aura-2 Neural Engine
+      <span class="text-accent">✦</span>
+    </div>
+
+    <h1 class="text-[clamp(2.8rem,8vw,5.5rem)] font-black tracking-tight leading-[1.05] mb-6">
+      <span class="shimmer-text">Turn Words</span><br/>
+      <span class="text-white">Into Voice.</span>
     </h1>
-    <p class="text-muted text-[15px] leading-relaxed max-w-md mx-auto">
-      Raw PCM → WAV in the browser. No dependencies, no server-side processing.
+
+    <p class="text-[clamp(1rem,2vw,1.2rem)] text-muted leading-relaxed max-w-xl mx-auto mb-10">
+      Matrix TTS synthesises human-quality speech in milliseconds.
+      Paste text, pick a voice, and hear it — instantly. No keys, no queues.
     </p>
+
+    <div class="flex flex-wrap items-center justify-center gap-3 text-[12px] font-medium">
+      <span class="flex items-center gap-1.5 bg-white/5 border border-white/8 px-3.5 py-1.5 rounded-full text-white/60">
+        <svg class="w-3 h-3 text-accent" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"/></svg>
+        Zero dependencies
+      </span>
+      <span class="flex items-center gap-1.5 bg-white/5 border border-white/8 px-3.5 py-1.5 rounded-full text-white/60">
+        <svg class="w-3 h-3 text-accent" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"/></svg>
+        6 neural voices
+      </span>
+      <span class="flex items-center gap-1.5 bg-white/5 border border-white/8 px-3.5 py-1.5 rounded-full text-white/60">
+        <svg class="w-3 h-3 text-accent" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"/></svg>
+        Smart 2-layer cache
+      </span>
+      <span class="flex items-center gap-1.5 bg-white/5 border border-white/8 px-3.5 py-1.5 rounded-full text-white/60">
+        <svg class="w-3 h-3 text-accent" fill="currentColor" viewBox="0 0 20 20"><path d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"/></svg>
+        WAV download
+      </span>
+    </div>
   </header>
 
-  <!-- Card -->
-  <div class="relative z-10 w-full max-w-[600px] bg-card border border-border rounded-2xl p-8 shadow-[0_32px_80px_rgba(0,0,0,0.6)]">
+  <!-- ─── FEATURES STRIP ────────────────────────────────────────────────── -->
+  <section id="features" class="relative z-10 max-w-5xl mx-auto px-6 pb-16">
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
 
-    <!-- Textarea -->
-    <div class="mb-5">
-      <div class="flex items-center justify-between mb-2">
-        <label for="textInput" class="text-[11px] font-semibold uppercase tracking-widest text-muted">Text to synthesise</label>
-        <span id="wordCount" class="text-[11px] font-medium text-muted tabular-nums transition-colors duration-200">0 / 400</span>
+      <div class="feature-card">
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center mb-4"
+             style="background: linear-gradient(135deg, rgba(19,239,147,0.15), rgba(19,239,147,0.05)); border: 1px solid rgba(19,239,147,0.2);">
+          <svg class="w-5 h-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+          </svg>
+        </div>
+        <h3 class="font-semibold text-[15px] text-white mb-1.5">Lightning Fast</h3>
+        <p class="text-muted text-[13px] leading-relaxed">Sub-second synthesis with a 2-layer cache — browser-level and server-level. Repeated phrases play instantly.</p>
       </div>
-      <textarea id="textInput" rows="4" placeholder="Enter text here…"
-                class="field-input resize-none leading-relaxed">Your lab results show elevated cholesterol levels of 240 mg/dL. I recommend starting Atorvastatin 10 mg daily and scheduling a follow-up in eight weeks to reassess.</textarea>
-    </div>
 
-    <!-- Model + Demo Type -->
-    <div class="grid grid-cols-2 gap-4 mb-6">
-      <div>
-        <label for="modelSelect" class="block text-[11px] font-semibold uppercase tracking-widest text-muted mb-2">Model</label>
-        <select id="modelSelect" class="field-input cursor-pointer">
-          <option value="aura-2-arcas-en">aura-2-arcas-en</option>
-          <option value="aura-2-zeus-en">aura-2-zeus-en</option>
-          <option value="aura-2-luna-en">aura-2-luna-en</option>
-          <option value="aura-2-stella-en">aura-2-stella-en</option>
-          <option value="aura-2-athena-en">aura-2-athena-en</option>
-          <option value="aura-2-hera-en">aura-2-hera-en</option>
-        </select>
+      <div class="feature-card">
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center mb-4"
+             style="background: linear-gradient(135deg, rgba(110,231,247,0.15), rgba(110,231,247,0.05)); border: 1px solid rgba(110,231,247,0.2);">
+          <svg class="w-5 h-5 text-accent2" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/>
+          </svg>
+        </div>
+        <h3 class="font-semibold text-[15px] text-white mb-1.5">Neural Voices</h3>
+        <p class="text-muted text-[13px] leading-relaxed">Six Deepgram Aura-2 voices — Arcas, Zeus, Luna, Stella, Athena, Hera — each trained to sound indistinguishably human.</p>
       </div>
-      <div>
-        <label for="demoTypeInput" class="block text-[11px] font-semibold uppercase tracking-widest text-muted mb-2">Demo Type</label>
-        <input id="demoTypeInput" type="text" value="voice-generator" class="field-input" />
+
+      <div class="feature-card">
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center mb-4"
+             style="background: linear-gradient(135deg, rgba(19,239,147,0.15), rgba(19,239,147,0.05)); border: 1px solid rgba(19,239,147,0.2);">
+          <svg class="w-5 h-5 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/>
+          </svg>
+        </div>
+        <h3 class="font-semibold text-[15px] text-white mb-1.5">REST API Ready</h3>
+        <p class="text-muted text-[13px] leading-relaxed">One POST request returns a WAV file. Pipe it to <code class="text-accent/80 text-[11px]">ffplay</code>, save it, or stream it — your choice.</p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ─── DEMO CARD ─────────────────────────────────────────────────────── -->
+  <section id="demo" class="relative z-10 flex flex-col items-center px-6 pb-6">
+
+    <div class="w-full max-w-[600px]">
+      <p class="text-center text-[11px] font-semibold uppercase tracking-widest text-muted mb-5">
+        ↓ Try it right now
+      </p>
+
+      <div class="bg-card border border-border rounded-2xl p-8 shadow-[0_32px_80px_rgba(0,0,0,0.7)]"
+           style="box-shadow: 0 32px 80px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.04);">
+
+        <div class="mb-5">
+          <div class="flex items-center justify-between mb-2">
+            <label for="textInput" class="text-[11px] font-semibold uppercase tracking-widest text-muted">Text to synthesise</label>
+            <span id="wordCount" class="text-[11px] font-medium text-muted tabular-nums transition-colors duration-200">0 / 400</span>
+          </div>
+          <textarea id="textInput" rows="4" placeholder="Enter text here…"
+                    class="field-input resize-none leading-relaxed">Your lab results show elevated cholesterol levels of 240 mg/dL. I recommend starting Atorvastatin 10 mg daily and scheduling a follow-up in eight weeks to reassess.</textarea>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 mb-6">
+          <div>
+            <label for="modelSelect" class="block text-[11px] font-semibold uppercase tracking-widest text-muted mb-2">Voice</label>
+            <select id="modelSelect" class="field-input cursor-pointer">
+              <option value="aura-2-arcas-en">Arcas — Male</option>
+              <option value="aura-2-zeus-en">Zeus — Male</option>
+              <option value="aura-2-luna-en">Luna — Female</option>
+              <option value="aura-2-stella-en">Stella — Female</option>
+              <option value="aura-2-athena-en">Athena — Female</option>
+              <option value="aura-2-hera-en">Hera — Female</option>
+            </select>
+          </div>
+          <div>
+            <label for="demoTypeInput" class="block text-[11px] font-semibold uppercase tracking-widest text-muted mb-2">Demo Type</label>
+            <input id="demoTypeInput" type="text" value="voice-generator" class="field-input" />
+          </div>
+        </div>
+
+        <button id="playBtn"
+                class="glow-btn w-full flex items-center justify-center gap-2.5 py-4 rounded-xl font-bold text-[15px] text-black cursor-pointer transition-all duration-200 hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0 disabled:shadow-none"
+                style="background: linear-gradient(135deg, #13ef93, #0cb874);">
+          <svg id="spinnerIcon" class="hidden w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+          </svg>
+          <span id="btnLabel">▶ Synthesise &amp; Play</span>
+        </button>
+
+        <div id="statusBox" class="hidden mt-5 rounded-xl px-4 py-3.5 text-sm leading-relaxed border"></div>
+
+        <div id="resultPanel" class="hidden mt-5 fade-up">
+          <div class="h-px bg-border mb-5"></div>
+          <div id="metaRow" class="flex flex-wrap gap-2 mb-4"></div>
+          <a id="downloadLink" download="matrix-tts-output.wav"
+             class="inline-flex items-center gap-2 border border-border text-muted text-[13px] font-medium px-4 py-2.5 rounded-lg hover:border-accent hover:text-accent transition-all duration-200 cursor-pointer">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12m0 0l-4-4m4 4l4-4"/>
+            </svg>
+            Download WAV
+          </a>
+        </div>
+
       </div>
     </div>
+  </section>
 
-    <!-- Play button -->
-    <button id="playBtn"
-            class="glow-btn w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl font-semibold text-[15px] text-black cursor-pointer transition-all duration-200 hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0 disabled:shadow-none"
-            style="background: linear-gradient(135deg, #13ef93, #0cb874);">
-      <svg id="spinnerIcon" class="hidden w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
-        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-      </svg>
-      <span id="btnLabel">▶ Synthesise &amp; Play</span>
-    </button>
-
-    <!-- Status -->
-    <div id="statusBox" class="hidden mt-5 rounded-xl px-4 py-3.5 text-sm leading-relaxed border"></div>
-
-    <!-- Result panel -->
-    <div id="resultPanel" class="hidden mt-5 fade-up">
-      <div class="h-px bg-border mb-5"></div>
-      <div id="metaRow" class="flex flex-wrap gap-2 mb-4"></div>
-      <a id="downloadLink" download="tts-output.wav"
-         class="inline-flex items-center gap-2 border border-border text-muted text-[13px] font-medium px-4 py-2.5 rounded-lg hover:border-accent hover:text-accent transition-all duration-200 cursor-pointer">
-        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12m0 0l-4-4m4 4l4-4"/>
-        </svg>
-        Download WAV
-      </a>
+  <!-- ─── SOCIAL PROOF ──────────────────────────────────────────────────── -->
+  <section class="relative z-10 max-w-5xl mx-auto px-6 py-14">
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-px bg-border rounded-2xl overflow-hidden border border-border">
+      <div class="bg-card px-6 py-7 text-center">
+        <div class="text-3xl font-black text-white mb-1" style="-webkit-text-fill-color:#13ef93;">6</div>
+        <div class="text-[12px] text-muted font-medium">Neural Voices</div>
+      </div>
+      <div class="bg-card px-6 py-7 text-center">
+        <div class="text-3xl font-black mb-1" style="color:#6ee7f7;">&lt;1s</div>
+        <div class="text-[12px] text-muted font-medium">Avg Latency</div>
+      </div>
+      <div class="bg-card px-6 py-7 text-center">
+        <div class="text-3xl font-black text-white mb-1" style="-webkit-text-fill-color:#13ef93;">2×</div>
+        <div class="text-[12px] text-muted font-medium">Cache Layers</div>
+      </div>
+      <div class="bg-card px-6 py-7 text-center">
+        <div class="text-3xl font-black mb-1" style="color:#6ee7f7;">∞</div>
+        <div class="text-[12px] text-muted font-medium">Free Replays</div>
+      </div>
     </div>
+  </section>
 
-  </div>
+  <!-- ─── API SECTION ───────────────────────────────────────────────────── -->
+  <section id="api" class="relative z-10 w-full max-w-[600px] mx-auto px-6 pb-14">
+    <div class="bg-card border border-border rounded-2xl p-8 shadow-[0_32px_80px_rgba(0,0,0,0.6)]">
+      <div class="flex items-center gap-2.5 mb-6">
+        <svg class="w-4 h-4 text-accent shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5 0h3"/></svg>
+        <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted">cURL Examples</h2>
+      </div>
 
-  <!-- cURL Examples -->
-  <div class="relative z-10 w-full max-w-[600px] mt-6 bg-card border border-border rounded-2xl p-8 shadow-[0_32px_80px_rgba(0,0,0,0.6)] fade-up">
-    <div class="flex items-center gap-2.5 mb-5">
-      <svg class="w-4 h-4 text-accent shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5 0h3"/></svg>
-      <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted">cURL Examples</h2>
-    </div>
+      <div class="space-y-5">
 
-    <div class="space-y-4">
-
-      <!-- Basic -->
-      <div>
-        <p class="text-[11px] font-medium text-muted uppercase tracking-wider mb-1.5">Basic — play in terminal (pipe to ffplay)</p>
-        <div class="relative group">
-          <pre id="curl1" class="bg-surface border border-border rounded-xl text-[12.5px] text-white/80 font-mono p-4 pr-12 leading-relaxed overflow-x-auto whitespace-pre">curl -s -X POST https://tts-project-s5s5.onrender.com/tts \
+        <div>
+          <p class="text-[11px] font-medium text-muted uppercase tracking-wider mb-1.5">Play in terminal</p>
+          <div class="relative group">
+            <pre id="curl1" class="bg-surface border border-border rounded-xl text-[12.5px] text-white/80 font-mono p-4 pr-12 leading-relaxed overflow-x-auto whitespace-pre">curl -s -X POST https://tts-project-s5s5.onrender.com/tts \
   -H "Content-Type: application/json" \
   -d '{"text":"Hello world!","model":"aura-2-arcas-en"}' \
   | ffplay -i pipe:0 -autoexit -nodisp 2>/dev/null</pre>
-          <button onclick="copyCode('curl1',this)" class="absolute top-3 right-3 text-muted hover:text-accent transition-colors duration-150 opacity-0 group-hover:opacity-100" title="Copy">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-          </button>
+            <button onclick="copyCode('curl1',this)" class="absolute top-3 right-3 text-muted hover:text-accent transition-colors duration-150 opacity-0 group-hover:opacity-100" title="Copy">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            </button>
+          </div>
         </div>
-      </div>
 
-      <!-- Save WAV -->
-      <div>
-        <p class="text-[11px] font-medium text-muted uppercase tracking-wider mb-1.5">Save to WAV file</p>
-        <div class="relative group">
-          <pre id="curl2" class="bg-surface border border-border rounded-xl text-[12.5px] text-white/80 font-mono p-4 pr-12 leading-relaxed overflow-x-auto whitespace-pre">curl -s -X POST https://tts-project-s5s5.onrender.com/tts \
+        <div>
+          <p class="text-[11px] font-medium text-muted uppercase tracking-wider mb-1.5">Save to WAV file</p>
+          <div class="relative group">
+            <pre id="curl2" class="bg-surface border border-border rounded-xl text-[12.5px] text-white/80 font-mono p-4 pr-12 leading-relaxed overflow-x-auto whitespace-pre">curl -s -X POST https://tts-project-s5s5.onrender.com/tts \
   -H "Content-Type: application/json" \
   -d '{"text":"Your appointment is confirmed for Monday at 3 PM.","model":"aura-2-luna-en"}' \
   -o output.wav</pre>
-          <button onclick="copyCode('curl2',this)" class="absolute top-3 right-3 text-muted hover:text-accent transition-colors duration-150 opacity-0 group-hover:opacity-100" title="Copy">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-          </button>
+            <button onclick="copyCode('curl2',this)" class="absolute top-3 right-3 text-muted hover:text-accent transition-colors duration-150 opacity-0 group-hover:opacity-100" title="Copy">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            </button>
+          </div>
         </div>
-      </div>
 
-      <!-- Health check -->
-      <div>
-        <p class="text-[11px] font-medium text-muted uppercase tracking-wider mb-1.5">Health check</p>
-        <div class="relative group">
-          <pre id="curl3" class="bg-surface border border-border rounded-xl text-[12.5px] text-white/80 font-mono p-4 pr-12 leading-relaxed overflow-x-auto whitespace-pre">curl https://tts-project-s5s5.onrender.com/health</pre>
-          <button onclick="copyCode('curl3',this)" class="absolute top-3 right-3 text-muted hover:text-accent transition-colors duration-150 opacity-0 group-hover:opacity-100" title="Copy">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
-          </button>
+        <div>
+          <p class="text-[11px] font-medium text-muted uppercase tracking-wider mb-1.5">Health check</p>
+          <div class="relative group">
+            <pre id="curl3" class="bg-surface border border-border rounded-xl text-[12.5px] text-white/80 font-mono p-4 pr-12 leading-relaxed overflow-x-auto whitespace-pre">curl https://tts-project-s5s5.onrender.com/health</pre>
+            <button onclick="copyCode('curl3',this)" class="absolute top-3 right-3 text-muted hover:text-accent transition-colors duration-150 opacity-0 group-hover:opacity-100" title="Copy">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+            </button>
+          </div>
         </div>
-      </div>
 
+      </div>
     </div>
-  </div>
+  </section>
 
-  <footer class="relative z-10 mt-10 text-muted text-xs text-center">
-    Raw PCM → 44-byte RIFF/WAV header prepended in-browser · No cookies sent
+  <!-- ─── FOOTER ────────────────────────────────────────────────────────── -->
+  <footer class="relative z-10 border-t border-border/50 mt-4 py-10 px-6">
+    <div class="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center gap-2">
+        <div class="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
+             style="background: linear-gradient(135deg, #13ef93, #0cb874);">
+          <svg class="w-3 h-3 text-black" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+          </svg>
+        </div>
+        <span class="font-bold text-[14px]">Matrix <span style="color:#13ef93;">TTS</span></span>
+      </div>
+      <p class="text-muted text-[12px] text-center">
+        Raw PCM → 44-byte RIFF/WAV header prepended in-browser &nbsp;·&nbsp; No cookies &nbsp;·&nbsp; No tracking
+      </p>
+      <p class="text-muted text-[12px]">Built with Deepgram Aura-2</p>
+    </div>
   </footer>
 
   <script>
@@ -224,9 +386,7 @@
     const downloadLink = document.getElementById('downloadLink');
 
     let prevObjectUrl = null;
-
-    // Cache: key = "text||model" → { wavBlob, format }
-    const audioCache = new Map();
+    const audioCache  = new Map();
 
     function countWords(str) {
       return str.trim() === '' ? 0 : str.trim().split(/\s+/).length;
@@ -285,8 +445,8 @@
       const model    = document.getElementById('modelSelect').value;
       const demoType = document.getElementById('demoTypeInput').value.trim();
 
-      if (!text)                          { setStatus('error', '✕ Please enter some text first.');           return; }
-      if (countWords(text) > WORD_LIMIT)  { setStatus('error', `✕ Text exceeds ${WORD_LIMIT}-word limit.`); return; }
+      if (!text)                         { setStatus('error', '✕ Please enter some text first.');           return; }
+      if (countWords(text) > WORD_LIMIT) { setStatus('error', `✕ Text exceeds ${WORD_LIMIT}-word limit.`); return; }
 
       resultPanel.classList.add('hidden');
       if (prevObjectUrl) { URL.revokeObjectURL(prevObjectUrl); prevObjectUrl = null; }
@@ -308,10 +468,8 @@
         let wavBlob, format;
 
         if (cached) {
-          // ── Cache hit: skip the API call ──
           ({ wavBlob, format } = cached);
         } else {
-          // ── Cache miss: fetch from API ──
           const res = await fetch('/tts', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -332,13 +490,21 @@
             bitDepth:   Number(res.headers.get('x-bit-depth')   ?? 16),
           };
 
-          // Store in cache for next time
+          wavBlob._serverCache = res.headers.get('x-cache') ?? 'MISS';
           audioCache.set(cacheKey, { wavBlob, format });
         }
 
         await playWavBlob(wavBlob);
 
-        setStatus('info', cached ? '✓ Playback complete (from cache).' : '✓ Playback complete.');
+        const cacheLabel = cached
+          ? '&#9889; local cache'
+          : wavBlob._serverCache === 'HIT'
+            ? '&#128204; server cache'
+            : null;
+
+        setStatus('info', cacheLabel
+          ? `✓ Playback complete &nbsp;<span class="text-[11px] opacity-60">(${cacheLabel})</span>`
+          : '✓ Playback complete.');
         prevObjectUrl = URL.createObjectURL(wavBlob);
         downloadLink.href = prevObjectUrl;
         renderMeta(format, wavBlob.size);
