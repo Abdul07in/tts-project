@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: deepgram-tts-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: 10000
+      - key: DEEPGRAM_API_KEY
+        sync: false

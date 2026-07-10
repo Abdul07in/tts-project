@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Deepgram TTS Player</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+
+  <style type="text/tailwindcss">
+    @theme {
+      --font-sans: 'Inter', sans-serif;
+      --color-bg:          #09090c;
+      --color-surface:     #101114;
+      --color-card:        #141720;
+      --color-border:      #1f2435;
+      --color-accent:      #13ef93;
+      --color-accent-dim:  #0cb874;
+      --color-muted:       #5a6380;
+      --color-warn:        #f59e0b;
+      --color-danger:      #f43f5e;
+    }
+
+    @keyframes eq {
+      from { transform: scaleY(0.25); }
+      to   { transform: scaleY(1); }
+    }
+    @keyframes glow-pulse {
+      0%, 100% { box-shadow: 0 0 20px rgba(19,239,147,0.2); }
+      50%       { box-shadow: 0 0 40px rgba(19,239,147,0.45); }
+    }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .eq-bar {
+      @apply w-0.5 rounded-sm bg-accent;
+      animation: eq 0.75s ease-in-out infinite alternate;
+    }
+    .eq-bar:nth-child(1) { height: 5px;  animation-delay: 0s; }
+    .eq-bar:nth-child(2) { height: 13px; animation-delay: 0.12s; }
+    .eq-bar:nth-child(3) { height: 9px;  animation-delay: 0.28s; }
+    .eq-bar:nth-child(4) { height: 15px; animation-delay: 0.08s; }
+    .eq-bar:nth-child(5) { height: 7px;  animation-delay: 0.22s; }
+
+    .glow-btn { animation: glow-pulse 2.5s ease-in-out infinite; }
+    .fade-up  { animation: fadeUp 0.3s ease forwards; }
+
+    .field-input {
+      @apply w-full bg-surface border border-border rounded-xl text-white/90
+             text-sm px-4 py-3 outline-none placeholder-muted
+             focus:border-accent/50 focus:ring-2 focus:ring-accent/10
+             transition-all duration-200 font-sans;
+    }
+  </style>
+</head>
+
+<body class="bg-bg text-white font-sans min-h-screen flex flex-col items-center px-4 py-16 antialiased">
+
+  <!-- Background grid -->
+  <div class="pointer-events-none fixed inset-0 opacity-[0.03]"
+       style="background-image: linear-gradient(#fff 1px, transparent 1px), linear-gradient(90deg, #fff 1px, transparent 1px); background-size: 40px 40px;"></div>
+
+  <!-- Glow blob -->
+  <div class="pointer-events-none fixed top-0 left-1/2 -translate-x-1/2 w-[700px] h-[400px] rounded-full opacity-10"
+       style="background: radial-gradient(ellipse, #13ef93 0%, transparent 70%); filter: blur(60px);"></div>
+
+  <!-- Header -->
+  <header class="relative text-center mb-14 z-10">
+    <div class="inline-flex items-center gap-2 bg-accent/10 border border-accent/25 text-accent text-[10px] font-semibold uppercase tracking-widest px-3.5 py-1.5 rounded-full mb-5">
+      <span class="w-1.5 h-1.5 rounded-full bg-accent shadow-[0_0_8px_#13ef93]"></span>
+      Live Demo
+    </div>
+    <h1 class="text-5xl font-bold tracking-tight mb-3"
+        style="background: linear-gradient(135deg, #fff 30%, #13ef93 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">
+      Deepgram TTS Player
+    </h1>
+    <p class="text-muted text-[15px] leading-relaxed max-w-md mx-auto">
+      Raw PCM → WAV in the browser. No dependencies, no server-side processing.
+    </p>
+  </header>
+
+  <!-- Card -->
+  <div class="relative z-10 w-full max-w-[600px] bg-card border border-border rounded-2xl p-8 shadow-[0_32px_80px_rgba(0,0,0,0.6)]">
+
+    <!-- Textarea -->
+    <div class="mb-5">
+      <div class="flex items-center justify-between mb-2">
+        <label for="textInput" class="text-[11px] font-semibold uppercase tracking-widest text-muted">Text to synthesise</label>
+        <span id="wordCount" class="text-[11px] font-medium text-muted tabular-nums transition-colors duration-200">0 / 400</span>
+      </div>
+      <textarea id="textInput" rows="4" placeholder="Enter text here…"
+                class="field-input resize-none leading-relaxed">Your lab results show elevated cholesterol levels of 240 mg/dL. I recommend starting Atorvastatin 10 mg daily and scheduling a follow-up in eight weeks to reassess.</textarea>
+    </div>
+
+    <!-- Model + Demo Type -->
+    <div class="grid grid-cols-2 gap-4 mb-6">
+      <div>
+        <label for="modelSelect" class="block text-[11px] font-semibold uppercase tracking-widest text-muted mb-2">Model</label>
+        <select id="modelSelect" class="field-input cursor-pointer">
+          <option value="aura-2-arcas-en">aura-2-arcas-en</option>
+          <option value="aura-2-zeus-en">aura-2-zeus-en</option>
+          <option value="aura-2-luna-en">aura-2-luna-en</option>
+          <option value="aura-2-stella-en">aura-2-stella-en</option>
+          <option value="aura-2-athena-en">aura-2-athena-en</option>
+          <option value="aura-2-hera-en">aura-2-hera-en</option>
+        </select>
+      </div>
+      <div>
+        <label for="demoTypeInput" class="block text-[11px] font-semibold uppercase tracking-widest text-muted mb-2">Demo Type</label>
+        <input id="demoTypeInput" type="text" value="voice-generator" class="field-input" />
+      </div>
+    </div>
+
+    <!-- Play button -->
+    <button id="playBtn"
+            class="glow-btn w-full flex items-center justify-center gap-2.5 py-3.5 rounded-xl font-semibold text-[15px] text-black cursor-pointer transition-all duration-200 hover:-translate-y-0.5 disabled:opacity-50 disabled:cursor-not-allowed disabled:translate-y-0 disabled:shadow-none"
+            style="background: linear-gradient(135deg, #13ef93, #0cb874);">
+      <svg id="spinnerIcon" class="hidden w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/>
+        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+      </svg>
+      <span id="btnLabel">▶ Synthesise &amp; Play</span>
+    </button>
+
+    <!-- Status -->
+    <div id="statusBox" class="hidden mt-5 rounded-xl px-4 py-3.5 text-sm leading-relaxed border"></div>
+
+    <!-- Result panel -->
+    <div id="resultPanel" class="hidden mt-5 fade-up">
+      <div class="h-px bg-border mb-5"></div>
+      <div id="metaRow" class="flex flex-wrap gap-2 mb-4"></div>
+      <a id="downloadLink" download="tts-output.wav"
+         class="inline-flex items-center gap-2 border border-border text-muted text-[13px] font-medium px-4 py-2.5 rounded-lg hover:border-accent hover:text-accent transition-all duration-200 cursor-pointer">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M12 4v12m0 0l-4-4m4 4l4-4"/>
+        </svg>
+        Download WAV
+      </a>
+    </div>
+
+  </div>
+
+  <footer class="relative z-10 mt-10 text-muted text-xs text-center">
+    Raw PCM → 44-byte RIFF/WAV header prepended in-browser · No cookies sent
+  </footer>
+
+  <script type="module">
+    import { playTtsAudio, TtsHttpError, TtsContentTypeError, TtsEmptyPayloadError, UnsupportedEnvironmentError } from './src/playTtsAudio.js';
+
+    const WORD_LIMIT   = 400;
+    const textInput    = document.getElementById('textInput');
+    const wordCount    = document.getElementById('wordCount');
+    const playBtn      = document.getElementById('playBtn');
+    const spinnerIcon  = document.getElementById('spinnerIcon');
+    const btnLabel     = document.getElementById('btnLabel');
+    const statusBox    = document.getElementById('statusBox');
+    const resultPanel  = document.getElementById('resultPanel');
+    const metaRow      = document.getElementById('metaRow');
+    const downloadLink = document.getElementById('downloadLink');
+
+    let prevObjectUrl = null;
+
+    function countWords(str) {
+      return str.trim() === '' ? 0 : str.trim().split(/\s+/).length;
+    }
+
+    function updateWordCount() {
+      const n = countWords(textInput.value);
+      wordCount.textContent = `${n} / ${WORD_LIMIT}`;
+      wordCount.className = n > WORD_LIMIT
+        ? 'text-[11px] font-medium tabular-nums text-danger transition-colors duration-200'
+        : n > WORD_LIMIT * 0.9
+          ? 'text-[11px] font-medium tabular-nums text-warn transition-colors duration-200'
+          : 'text-[11px] font-medium tabular-nums text-muted transition-colors duration-200';
+    }
+
+    textInput.addEventListener('input', () => {
+      const words = textInput.value.trim().split(/\s+/);
+      if (words.length > WORD_LIMIT) textInput.value = words.slice(0, WORD_LIMIT).join(' ');
+      updateWordCount();
+    });
+
+    updateWordCount();
+
+    function setLoading(on) {
+      playBtn.disabled = on;
+      spinnerIcon.classList.toggle('hidden', !on);
+      btnLabel.textContent = on ? 'Synthesising…' : '▶ Synthesise & Play';
+    }
+
+    function setStatus(type, html) {
+      const styles = {
+        error:   'bg-danger/8 border-danger/25 text-danger',
+        info:    'bg-accent/8 border-accent/20 text-accent',
+        playing: 'bg-accent/8 border-accent/20 text-accent flex items-center gap-3',
+      };
+      statusBox.className = `mt-5 rounded-xl px-4 py-3.5 text-sm leading-relaxed border ${styles[type]}`;
+      statusBox.innerHTML = html;
+    }
+
+    function renderMeta(format, bytes) {
+      const pills = [
+        ['Sample rate', `${format.sampleRate.toLocaleString()} Hz`],
+        ['Channels',    format.channels === 1 ? 'Mono' : 'Stereo'],
+        ['Bit depth',   `${format.bitDepth}-bit`],
+        ['PCM size',    `${(bytes / 1024).toFixed(1)} KB`],
+      ];
+      metaRow.innerHTML = pills.map(([k, v]) =>
+        `<div class="bg-white/5 border border-border rounded-full text-[11px] font-medium text-muted px-3 py-1">
+           ${k}: <span class="text-white/80">${v}</span>
+         </div>`
+      ).join('');
+    }
+
+    playBtn.addEventListener('click', async () => {
+      const text     = textInput.value.trim();
+      const model    = document.getElementById('modelSelect').value;
+      const demoType = document.getElementById('demoTypeInput').value.trim();
+
+      if (!text)                          { setStatus('error', '✕ Please enter some text first.');           return; }
+      if (countWords(text) > WORD_LIMIT)  { setStatus('error', `✕ Text exceeds ${WORD_LIMIT}-word limit.`); return; }
+
+      resultPanel.classList.add('hidden');
+      if (prevObjectUrl) { URL.revokeObjectURL(prevObjectUrl); prevObjectUrl = null; }
+
+      setLoading(true);
+      setStatus('playing', `
+        <div class="flex items-end gap-[3px] h-[18px] shrink-0">
+          <div class="eq-bar"></div><div class="eq-bar"></div>
+          <div class="eq-bar"></div><div class="eq-bar"></div>
+          <div class="eq-bar"></div>
+        </div>
+        Playing…
+      `);
+
+      try {
+        const { wavBlob, format } = await playTtsAudio({ text, model, demoType, autoPlay: true });
+
+        setStatus('info', '✓ Playback complete.');
+        prevObjectUrl = URL.createObjectURL(wavBlob);
+        downloadLink.href = prevObjectUrl;
+        renderMeta(format, wavBlob.size);
+        resultPanel.classList.remove('hidden');
+
+      } catch (err) {
+        const msg =
+          err instanceof UnsupportedEnvironmentError ? `Browser not supported: ${err.message}` :
+          err instanceof TtsHttpError                ? `HTTP ${err.status}: ${err.statusText}`  :
+          err instanceof TtsContentTypeError         ? `Wrong content type: ${err.received}`    :
+          err instanceof TtsEmptyPayloadError        ? 'Server returned empty audio.'           :
+          err.name === 'AbortError'                  ? 'Request cancelled.'                     :
+          err.message;
+        setStatus('error', `✕ ${msg}`);
+      } finally {
+        setLoading(false);
+      }
+    });
+  </script>
+
+</body>
+</html>
