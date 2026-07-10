@@ -143,9 +143,71 @@
 
   </div>
 
+  <!-- cURL Examples -->
+  <div class="relative z-10 w-full max-w-[600px] mt-6 bg-card border border-border rounded-2xl p-8 shadow-[0_32px_80px_rgba(0,0,0,0.6)] fade-up">
+    <div class="flex items-center gap-2.5 mb-5">
+      <svg class="w-4 h-4 text-accent shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5 0h3"/></svg>
+      <h2 class="text-[11px] font-semibold uppercase tracking-widest text-muted">cURL Examples</h2>
+    </div>
+
+    <div class="space-y-4">
+
+      <!-- Basic -->
+      <div>
+        <p class="text-[11px] font-medium text-muted uppercase tracking-wider mb-1.5">Basic — play in terminal (pipe to ffplay)</p>
+        <div class="relative group">
+          <pre id="curl1" class="bg-surface border border-border rounded-xl text-[12.5px] text-white/80 font-mono p-4 pr-12 leading-relaxed overflow-x-auto whitespace-pre">curl -s -X POST https://tts-project-s5s5.onrender.com/tts \
+  -H "Content-Type: application/json" \
+  -d '{"text":"Hello world!","model":"aura-2-arcas-en"}' \
+  | ffplay -i pipe:0 -autoexit -nodisp 2>/dev/null</pre>
+          <button onclick="copyCode('curl1',this)" class="absolute top-3 right-3 text-muted hover:text-accent transition-colors duration-150 opacity-0 group-hover:opacity-100" title="Copy">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Save WAV -->
+      <div>
+        <p class="text-[11px] font-medium text-muted uppercase tracking-wider mb-1.5">Save to WAV file</p>
+        <div class="relative group">
+          <pre id="curl2" class="bg-surface border border-border rounded-xl text-[12.5px] text-white/80 font-mono p-4 pr-12 leading-relaxed overflow-x-auto whitespace-pre">curl -s -X POST https://tts-project-s5s5.onrender.com/tts \
+  -H "Content-Type: application/json" \
+  -d '{"text":"Your appointment is confirmed for Monday at 3 PM.","model":"aura-2-luna-en"}' \
+  -o output.wav</pre>
+          <button onclick="copyCode('curl2',this)" class="absolute top-3 right-3 text-muted hover:text-accent transition-colors duration-150 opacity-0 group-hover:opacity-100" title="Copy">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Health check -->
+      <div>
+        <p class="text-[11px] font-medium text-muted uppercase tracking-wider mb-1.5">Health check</p>
+        <div class="relative group">
+          <pre id="curl3" class="bg-surface border border-border rounded-xl text-[12.5px] text-white/80 font-mono p-4 pr-12 leading-relaxed overflow-x-auto whitespace-pre">curl https://tts-project-s5s5.onrender.com/health</pre>
+          <button onclick="copyCode('curl3',this)" class="absolute top-3 right-3 text-muted hover:text-accent transition-colors duration-150 opacity-0 group-hover:opacity-100" title="Copy">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
   <footer class="relative z-10 mt-10 text-muted text-xs text-center">
     Raw PCM → 44-byte RIFF/WAV header prepended in-browser · No cookies sent
   </footer>
+
+  <script>
+    function copyCode(id, btn) {
+      const text = document.getElementById(id).textContent;
+      navigator.clipboard.writeText(text).then(() => {
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<svg class="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>';
+        setTimeout(() => { btn.innerHTML = orig; }, 1800);
+      });
+    }
+  </script>
 
   <script type="module">
     import { playWavBlob, UnsupportedEnvironmentError, TtsHttpError } from './src/playTtsAudio.js';
